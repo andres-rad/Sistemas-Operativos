@@ -10,7 +10,7 @@
 int
 main(int argc, char **argv)
 {
-	char *buf;
+	char buf[1024];
 	struct sockaddr_in name;
 	size_t bufsiz;
 	ssize_t w;
@@ -40,8 +40,9 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	buf = NULL;
-	bufsiz = 0;
+	char buffer[1024];
+	bufsiz = 1024;
+
 	for (;;) {
 		printf("[%s]> ", argv[1]);
 		if ((w = getline(&buf, &bufsiz, stdin)) == -1) {
@@ -57,13 +58,13 @@ main(int argc, char **argv)
 			exit(1);
 		}
 		
-		ioctl(s, FIONREAD, &bufsiz);
-		if(bufsiz > 0){
-			bufsiz = read(s, buf, bufsiz);
-			buf[bufsiz] = '\0';
-			fprintf(stdout, "%s", buf);
-			fflush(stdout);
+		while((bufsiz = read(s, buffer, bufsiz)) > 0){
+			if(strncmp(buffer, CMDSEP, 4) == 0)
+				break;
+			printf("%s", buf);
+			bzero(buffer, bufsiz);
 		}
+		printf('\n');
 		
 	}
 	free(buf);

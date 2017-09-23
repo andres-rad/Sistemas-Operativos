@@ -21,18 +21,15 @@ static int run(const char ***progs, size_t count)
 	/* ----------------- */
 	/* TODO: crear pipes */
 	/* ----------------- */
-	int npipes[2][2];
-	pipes = npipes;
-	
-	for(i = 0; i < count - 1; i++){
-		if(pipe(pipes[i])){
-			perror("bad pipe");
-			exit(1);
-		}
-	}
+    if(!(pipes = malloc(sizeof(*pipes) * (count-1)))) {
+        fputs("out of memory for pipes\n", stderr);
+        goto end;
+    }
 
 	for (i = 0; i < count; i++) {
 		
+        if(i < count-1) pipe(pipes[i]);
+
 		if ((cur = fork()) == -1) {
 			fprintf(stderr, "fork [%zu]", i);
 			perror("");
@@ -45,19 +42,19 @@ static int run(const char ***progs, size_t count)
 			/* ------------------------------------ */
 			/* TODO: redireccionar los fd adecuados */
 			/* ------------------------------------ */
-			if(i == 0){
-				close(pipes[0][0]);
-				dup2(pipes[0][1], 1); //redirecciona stdout
-			} else if(i == count - 1) {
-				close(pipes[i-1][1]);
-				dup2(pipes[i-1][0], 0);
-			} else {
-				close(pipes[i-1][1]);
-				close(pipes[i][0]);
-
-				dup2(pipes[i-1][0], 0);
-				dup2(pipes[i][1], 1);
-			}
+            printf("Entre %d\n", i); fflush(stdout);
+			if (i == 0) {
+                dup2(pipes[i][1], 1);
+                close(pipes[i][0]);
+            } else if (i == count - 1){
+                dup2(pipes[i-1][0], 0);
+                close(pipes[i-1][1]);
+            } else {
+                dup2(pipes[i-1][0], 0);
+                dup2(pipes[i][1], 1);
+                close(pipes[i-1][1]);
+                close(pipes[i][0]);
+            }
 
 			if (execvp(progs[i][0], progs[i]) == -1) {
 				perror("execvp");
@@ -67,18 +64,11 @@ static int run(const char ***progs, size_t count)
 		} else {
 			children[i] = cur;
 			
-			if(i == 0){
-				close(pipes[0][1]);
-			} else if(i == count - 1){
-				close(pipes[i-1][0]);
-			} else {
-				close(pipes[i-1][0]);
-				close(pipes[i][1]);
-			}
 		}
 	}
 
 	for (i = 0; i < count; i++) {
+        //printf("Esperando thread %d", i); fflush(stdout);
 		if (waitpid(children[i], &status, 0) == -1) {
 			perror("waitpid");
 			return -1;
@@ -102,11 +92,12 @@ end:
 int
 main(int argc, char **argv)
 {
-	char *lscmd[] = { "ls", "-al", NULL };
+    printf("Llege");
+	fflush(stdout);
+    char *lscmd[] = { "ls", "-al", NULL };
 	char *wccmd[] = { "wc", NULL };
 	char *awkcmd[] = { "awk", "{ print $2 }", NULL };
 	char **progs[] = { lscmd, wccmd, awkcmd };
-
 	printf("status: %d\n", run(progs, NELEMS(progs)));
 	fflush(stdout);
 	fflush(stderr);

@@ -52,8 +52,9 @@ main(int argc, char **argv)
 		}
 		buf[r] = '\0';
 		printf("comando: %s", buf);
+		
 		(void)system(buf);
-
+		printf("END\n");
 
 	}
 	close(c);
