@@ -42,34 +42,40 @@ static int run(const char ***progs, size_t count)
 			/* ------------------------------------ */
 			/* TODO: redireccionar los fd adecuados */
 			/* ------------------------------------ */
-            printf("Entre %d\n", i); fflush(stdout);
-			if (i == 0) {
+            
+            if (i == 0) {
                 dup2(pipes[i][1], 1);
-                close(pipes[i][0]);
             } else if (i == count - 1){
                 dup2(pipes[i-1][0], 0);
-                close(pipes[i-1][1]);
             } else {
                 dup2(pipes[i-1][0], 0);
                 dup2(pipes[i][1], 1);
-                close(pipes[i-1][1]);
                 close(pipes[i][0]);
+                close(pipes[i][1]);
             }
-
+            
+            for(int j = 0; j < i; j++){
+				close(pipes[j][0]);
+				close(pipes[j][1]);
+			}
+			
 			if (execvp(progs[i][0], progs[i]) == -1) {
 				perror("execvp");
 				return -1;
 			}
 			exit(1); /* no alcanzable */
 		} else {
-			children[i] = cur;
-			
+			children[i] = cur;	
+			for(int j = 0; j < i; j++){
+				close(pipes[j][0]);
+				close(pipes[j][1]);
+			}
 		}
+		
 	}
-
+	
 	for (i = 0; i < count; i++) {
-        //printf("Esperando thread %d", i); fflush(stdout);
-		if (waitpid(children[i], &status, 0) == -1) {
+        if (waitpid(children[i], &status, 0) == -1) {
 			perror("waitpid");
 			return -1;
 		}
@@ -80,6 +86,7 @@ static int run(const char ***progs, size_t count)
 			return -1;
 		}
 	}
+	
 	r = 0;
 
 end:
@@ -92,12 +99,11 @@ end:
 int
 main(int argc, char **argv)
 {
-    printf("Llege");
-	fflush(stdout);
+    fflush(stdout);
     char *lscmd[] = { "ls", "-al", NULL };
 	char *wccmd[] = { "wc", NULL };
 	char *awkcmd[] = { "awk", "{ print $2 }", NULL };
-	char **progs[] = { lscmd, wccmd, awkcmd };
+	char **progs[] = { lscmd , wccmd, awkcmd};
 	printf("status: %d\n", run(progs, NELEMS(progs)));
 	fflush(stdout);
 	fflush(stderr);
